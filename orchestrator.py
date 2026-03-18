@@ -24,7 +24,6 @@ from subdomain_modules.virustotal_subs import get_virustotal_subdomains
 from subdomain_modules.securitytrails_subs import get_securitytrails_subdomains
 from subdomain_modules.crtsh_subs import get_crtsh_subdomains
 from subdomain_modules.chaos_subs import get_chaos_subdomains
-from subdomain_modules.urlscan_subs import get_urlscan_subdomains
 from subdomain_modules.otx_subs import get_otx_subdomains
 from subdomain_modules.subfinder_subs import get_subfinder_subdomains
 
@@ -41,14 +40,13 @@ from ip_modules.shodan_ips import get_shodan_ips
 # SOURCE MAPPING
 # ============================================================================
 
-# Map source names to their functions
+# Map source names to their functions (urlscan removed)
 SOURCE_MAP = {
     'virustotal': ('VirusTotal', lambda d: get_virustotal_subdomains(d)),
     'securitytrails': ('SecurityTrails', lambda d: get_securitytrails_subdomains(d)),
     'crtsh': ('crt.sh', lambda d: get_crtsh_subdomains(d)),
     'shodan': ('Shodan', lambda d: download_and_parse_shodan_data(d)),
     'chaos': ('Chaos', lambda d: get_chaos_subdomains(d)),
-    'urlscan': ('URLScan', lambda d: get_urlscan_subdomains(d)),
     'otx': ('AlienVault OTX', lambda d: get_otx_subdomains(d)),
     'subfinder': ('Subfinder', lambda d: get_subfinder_subdomains(d)),
 }
@@ -175,11 +173,12 @@ def validate_expansion_tools(silent=False):
 def fetch_subdomains_parallel(domain, selected_sources=None, silent=False):
     """
     Fetch subdomains from all (or selected) sources in parallel.
+    Runs fully silent — callers handle output.
 
     Args:
         domain: Target domain
         selected_sources: List of source keys to use (None = all)
-        silent: If True, suppress progress output
+        silent: Unused here (kept for API compatibility)
 
     Returns:
         Tuple of (all_subdomains set, source_results dict)
@@ -200,34 +199,16 @@ def fetch_subdomains_parallel(domain, selected_sources=None, silent=False):
     results = {}
     all_subdomains = set()
 
-    if not silent:
-        print(f"[+] Fetching subdomains from {len(tasks)} sources in parallel...")
-        print(f"[*] This will be much faster than sequential queries!\n")
-
-    start_time = time.time()
-    completed = 0
-    total = len(tasks)
-
-    with ThreadPoolExecutor(max_workers=min(8, total)) as executor:
+    with ThreadPoolExecutor(max_workers=min(7, len(tasks))) as executor:
         future_to_source = {executor.submit(task): source for source, task in tasks.items()}
-
         for future in as_completed(future_to_source):
             source = future_to_source[future]
-            completed += 1
             try:
                 result = future.result() or []
                 results[source] = result
                 all_subdomains.update(result)
-                if not silent:
-                    print(f"[{completed}/{total}] ✓ {source}: {len(result)} subdomains")
-            except Exception as e:
-                if not silent:
-                    print(f"[{completed}/{total}] ✗ {source}: Error - {str(e)}")
+            except Exception:
                 results[source] = []
-
-    elapsed = time.time() - start_time
-    if not silent:
-        print(f"\n[⏱] All sources completed in {elapsed:.2f} seconds")
 
     return all_subdomains, results
 
@@ -239,6 +220,7 @@ def fetch_subdomains_parallel(domain, selected_sources=None, silent=False):
 def subdomain_enumeration(domain, domain_output_dir, check_live=False, selected_sources=None, silent=False):
     """
     Run subdomain enumeration for a single domain (used in batch mode).
+    Prints one start line before fetching; result line is printed by the caller.
 
     Returns:
         Tuple of (all_subdomains set, live_subdomains set)
@@ -249,36 +231,50 @@ def subdomain_enumeration(domain, domain_output_dir, check_live=False, selected_
     domain_live_file = os.path.join(domain_output_dir, 'live_subdomains.txt')
 
     if not silent:
-        print(f"\n{'='*60}")
-        print(f"[*] Target: {domain}")
-        print(f"{'='*60}\n")
+        print(f"[INF] Enumerating subdomains for {domain} ...")
 
-    all_subdomains, source_results = fetch_subdomains_parallel(domain, selected_sources, silent)
+    all_subdomains, source_results = fetch_subdomains_parallel(domain, selected_sources)
 
     save_results(domain_subs_file, all_subdomains)
 
-    if not silent:
-        print(f"\n{'='*60}")
-        print(f"[✓] Total unique subdomains: {len(all_subdomains)}")
-        print(f"[✓] Saved to: {domain_subs_file}")
-
     live_subdomains = set()
     if check_live:
-        if not silent:
-            print(f"\n[+] Checking for live subdomains with httpx...")
-        live_count = check_live_subdomains(domain_subs_file, domain_live_file, silent)
-        if not silent:
-            print(f"[✓] Live subdomains: {live_count}")
-            print(f"[✓] Saved to: {domain_live_file}")
-
+        check_live_subdomains(domain_subs_file, domain_live_file, silent=True)
         if os.path.exists(domain_live_file):
             with open(domain_live_file, 'r') as f:
                 live_subdomains = set(line.strip() for line in f if line.strip())
 
-    if not silent:
-        print(f"{'='*60}\n")
-
     return all_subdomains, live_subdomains
+
+
+# ============================================================================
+# HELPERS
+# ============================================================================
+
+def _fmt_duration(seconds):
+    """Format seconds into a human-readable duration string."""
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
+    if h > 0:
+        return f"{h}h {m}m {s}s"
+    if m > 0:
+        return f"{m}m {s}s"
+    return f"{s}s"
+
+
+def _print_report(domains_count, subs_count, live_count, elapsed, output_dir, check_live):
+    """Print the final scan summary report."""
+    print(f"\n{'='*54}")
+    print(f"  SCAN REPORT")
+    print(f"{'='*54}")
+    print(f"  Domains scanned :  {domains_count:,}")
+    print(f"  Subdomains found:  {subs_count:,}")
+    if check_live:
+        print(f"  Live subdomains :  {live_count:,}")
+    print(f"  Duration        :  {_fmt_duration(elapsed)}")
+    print(f"  Output          :  {output_dir}")
+    print(f"{'='*54}\n")
 
 
 # ============================================================================
@@ -297,54 +293,43 @@ def process_single_domain(domain, check_live=False, run_expansion=False,
     live_subs_file = os.path.join(output_dir, f'live_{domain}_subdomains.txt')
 
     if not silent:
-        print(f"\n{'='*60}")
-        print(f"[*] Target: {domain}")
-        print(f"{'='*60}\n")
+        print(f"[INF] Enumerating subdomains for {domain} ...")
 
-    all_subdomains, source_results = fetch_subdomains_parallel(domain, selected_sources, silent)
+    start_time = time.time()
+    all_subdomains, _ = fetch_subdomains_parallel(domain, selected_sources)
+    elapsed = time.time() - start_time
 
     save_results(all_subs_file, all_subdomains)
 
-    if not silent:
-        print(f"\n{'='*60}")
-        print(f"[✓] Total unique subdomains: {len(all_subdomains)}")
-        print(f"[✓] Saved to: {all_subs_file}")
-
     if silent:
-        # In silent mode, just print subdomains to stdout
         for sub in sorted(all_subdomains):
             print(sub)
+        return
 
     # Run expansion if requested
     if run_expansion:
         if not validate_expansion_tools(silent):
-            if not silent:
-                print("[!] Expansion tools not available. Skipping expansion.")
-                print("[!] Run './setup.sh' to install required tools\n")
+            print("[!] Expansion tools not available. Skipping expansion.")
+            print("[!] Run './setup.sh' to install required tools\n")
         else:
             all_in_one_file = os.path.join(output_dir, f'all_in_one_{domain}.txt')
-            domains_list = [domain]
-            expand.expand_subdomains(all_subs_file, all_in_one_file, domains_list)
+            expand.expand_subdomains(all_subs_file, all_in_one_file, [domain])
 
             if check_live:
                 live_expansion_file = os.path.join(output_dir, f'live_all_in_one_{domain}.txt')
-                if not silent:
-                    print(f"\n[+] Checking expanded subdomains for live hosts with httpx...")
-                live_count = check_live_subdomains(all_in_one_file, live_expansion_file, silent)
-                if not silent:
-                    print(f"[✓] Live expanded subdomains: {live_count}")
-                    print(f"[✓] Saved to: {live_expansion_file}")
+                live_count = check_live_subdomains(all_in_one_file, live_expansion_file, silent=True)
+                print(f"[INF] {domain} → {len(all_subdomains)} subdomains found "
+                      f"| {live_count} live (expanded) | {elapsed:.1f}s")
+                print(f"[INF] Saved: {all_in_one_file}")
+                return
 
+    live_count = 0
     if check_live:
-        if not silent:
-            print(f"\n[+] Checking original subdomains for live hosts with httpx...")
-        live_count = check_live_subdomains(all_subs_file, live_subs_file, silent)
-        if not silent:
-            print(f"[✓] Live subdomains: {live_count}")
-            print(f"[✓] Saved to: {live_subs_file}")
+        live_count = check_live_subdomains(all_subs_file, live_subs_file, silent=True)
 
-    if not silent:
-        print(f"{'='*60}\n")
+    live_str = f" | {live_count} live" if check_live else ""
+    print(f"[INF] {domain} → {len(all_subdomains)} subdomains found{live_str} | {elapsed:.1f}s")
+    print(f"[INF] Saved: {all_subs_file}")
 
 
 def process_domain_list(list_file, check_live=False, parallel_domains=3,
@@ -354,95 +339,73 @@ def process_domain_list(list_file, check_live=False, parallel_domains=3,
     if not domains:
         return
 
-    # Validate all domains
     domains = validate_domains(domains)
     if not domains:
         print("[-] No valid domains in list!")
         return
 
-    first_domain = domains[0]
-    scan_dir = get_scan_dir(first_domain)
+    scan_dir = get_scan_dir(domains[0])
 
     if not silent:
-        print(f"\n[*] Scan directory: {scan_dir}")
-        print(f"[*] Processing {len(domains)} domains from list...")
-        print(f"[*] Running {parallel_domains} domains in parallel for speed\n")
+        print(f"[INF] Scan directory : {scan_dir}")
+        print(f"[INF] Domains loaded : {len(domains)} | parallel workers: {parallel_domains}\n")
 
     all_subdomains_aggregate = set()
     all_live_aggregate = set()
-
     start_time = time.time()
 
     with ThreadPoolExecutor(max_workers=parallel_domains) as executor:
         futures = []
         for idx, domain in enumerate(domains, 1):
             domain_dir = os.path.join(scan_dir, domain)
-            future = executor.submit(subdomain_enumeration, domain, domain_dir, check_live, selected_sources, silent)
+            future = executor.submit(
+                subdomain_enumeration, domain, domain_dir, check_live, selected_sources, silent
+            )
             futures.append((future, domain, idx))
 
         for future, domain, idx in futures:
-            if not silent:
-                print(f"\n{'#'*60}")
-                print(f"[*] Collecting results for domain {idx}/{len(domains)}: {domain}")
-                print(f"{'#'*60}")
-
             try:
                 domain_subs, domain_live = future.result()
                 all_subdomains_aggregate.update(domain_subs)
                 all_live_aggregate.update(domain_live)
+                if not silent:
+                    live_str = f" | {len(domain_live)} live" if check_live else ""
+                    print(f"[{idx}/{len(domains)}] {domain} → {len(domain_subs)} subdomains{live_str}")
             except Exception as e:
                 if not silent:
-                    print(f"[-] Error processing {domain}: {str(e)}")
+                    print(f"[{idx}/{len(domains)}] {domain} → ERROR: {str(e)}")
                 continue
 
     elapsed = time.time() - start_time
-    if not silent:
-        print(f"\n[⏱] Total scan time: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
-        print(f"\n{'='*60}")
-        print(f"[*] Saving aggregated results...")
-        print(f"{'='*60}\n")
 
     all_subs_file = os.path.join(scan_dir, 'all_subdomains.txt')
-    count = save_results(all_subs_file, all_subdomains_aggregate)
-
-    if not silent:
-        print(f"[✓] All subdomains from all domains: {count}")
-        print(f"[✓] Saved to: {all_subs_file}")
+    save_results(all_subs_file, all_subdomains_aggregate)
 
     if silent:
         for sub in sorted(all_subdomains_aggregate):
             print(sub)
+        return
 
     # Run expansion if requested
     if run_expansion:
         if not validate_expansion_tools(silent):
-            if not silent:
-                print("[!] Expansion tools not available. Skipping expansion.")
-                print("[!] Run './setup.sh' to install required tools\n")
+            print("[!] Expansion tools not available. Skipping expansion.")
+            print("[!] Run './setup.sh' to install required tools\n")
         else:
             all_in_one_file = os.path.join(scan_dir, 'all_in_one.txt')
             expand.expand_subdomains(all_subs_file, all_in_one_file, domains)
 
             if check_live:
                 live_expansion_file = os.path.join(scan_dir, 'live_all_in_one.txt')
-                if not silent:
-                    print(f"\n[+] Checking expanded subdomains for live hosts with httpx...")
-                live_count = check_live_subdomains(all_in_one_file, live_expansion_file, silent)
-                if not silent:
-                    print(f"[✓] Live expanded subdomains: {live_count}")
-                    print(f"[✓] Saved to: {live_expansion_file}")
+                expanded_live = check_live_subdomains(all_in_one_file, live_expansion_file, silent=True)
+                print(f"[INF] Expanded live subdomains: {expanded_live} → {live_expansion_file}")
 
     if check_live and all_live_aggregate:
         all_live_file = os.path.join(scan_dir, 'live_all_subdomains.txt')
-        count = save_results(all_live_file, all_live_aggregate)
-        if not silent:
-            print(f"[✓] All live subdomains from all domains: {count}")
-            print(f"[✓] Saved to: {all_live_file}")
+        save_results(all_live_file, all_live_aggregate)
 
-    if not silent:
-        print(f"\n{'='*60}")
-        print(f"[✓] Scan complete! Results saved in: {scan_dir}")
-        print(f"{'='*60}\n")
+    _print_report(len(domains), len(all_subdomains_aggregate),
+                  len(all_live_aggregate), elapsed, scan_dir, check_live)
 
 
 # ============================================================================
@@ -592,45 +555,31 @@ def process_acquisition(domain, email_filters=None, silent=False):
     output_dir = get_acquisition_dir()
     acq_file = os.path.join(output_dir, f'{domain}_acquisition.txt')
 
-    all_associated = set()
-
     if not silent:
-        print(f"\n{'='*60}")
-        print(f"[*] Target: {domain}")
-        print(f"[*] Finding associated domains...")
+        print(f"[INF] Finding associated domains for {domain} ...")
         if email_filters:
-            print(f"[*] Email filters: {', '.join(email_filters)}")
-        print(f"{'='*60}\n")
+            print(f"[INF] Email filters: {', '.join(email_filters)}")
 
+    all_associated = set()
     tasks = {
         'SecurityTrails': lambda: get_securitytrails_associated(domain),
         'AlienVault OTX': lambda: get_otx_associated(domain, email_filters)
     }
 
-    if not silent:
-        print(f"[+] Fetching associated domains from sources in parallel...\n")
-
     with ThreadPoolExecutor(max_workers=2) as executor:
         future_to_source = {executor.submit(task): source for source, task in tasks.items()}
-
         for future in as_completed(future_to_source):
-            source = future_to_source[future]
             try:
                 result = future.result() or []
                 all_associated.update(result)
-                if not silent:
-                    print(f"[✓] {source}: {len(result)} associated domains")
-            except Exception as e:
-                if not silent:
-                    print(f"[✗] {source}: Error - {str(e)}")
+            except Exception:
+                pass
 
     save_results(acq_file, all_associated)
 
     if not silent:
-        print(f"\n{'='*60}")
-        print(f"[✓] Total associated domains: {len(all_associated)}")
-        print(f"[✓] Saved to: {acq_file}")
-        print(f"{'='*60}\n")
+        print(f"[INF] {domain} → {len(all_associated)} associated domains found")
+        print(f"[INF] Saved: {acq_file}")
 
     if silent:
         for d in sorted(all_associated):
@@ -648,100 +597,72 @@ def process_acquisition_with_enum(domain, email_filters=None, check_live=False,
     scan_dir = get_scan_dir(domain, 'acquisition')
 
     if not silent:
-        print(f"\n[*] Scan directory: {scan_dir}")
+        print(f"[INF] Scan directory : {scan_dir}")
+        print(f"[INF] Phase 1: Finding associated domains for {domain} ...")
+        if email_filters:
+            print(f"[INF] Email filters  : {', '.join(email_filters)}")
 
     all_associated = set()
-
-    if not silent:
-        print(f"\n{'='*60}")
-        print(f"[*] Target: {domain}")
-        print(f"[*] Phase 1: Finding associated domains...")
-        if email_filters:
-            print(f"[*] Email filters: {', '.join(email_filters)}")
-        print(f"{'='*60}\n")
-
     tasks = {
         'SecurityTrails': lambda: get_securitytrails_associated(domain),
         'AlienVault OTX': lambda: get_otx_associated(domain, email_filters)
     }
 
-    if not silent:
-        print(f"[+] Fetching associated domains from sources in parallel...\n")
-
     with ThreadPoolExecutor(max_workers=2) as executor:
         future_to_source = {executor.submit(task): source for source, task in tasks.items()}
-
         for future in as_completed(future_to_source):
-            source = future_to_source[future]
             try:
                 result = future.result() or []
                 all_associated.update(result)
-                if not silent:
-                    print(f"[✓] {source}: {len(result)} associated domains")
-            except Exception as e:
-                if not silent:
-                    print(f"[✗] {source}: Error - {str(e)}")
+            except Exception:
+                pass
 
     assoc_file = os.path.join(scan_dir, 'associated_domains.txt')
     save_results(assoc_file, all_associated)
 
     if not silent:
-        print(f"\n[✓] Total associated domains: {len(all_associated)}")
-        print(f"[✓] Saved to: {assoc_file}")
+        print(f"[INF] Associated domains found: {len(all_associated)} → {assoc_file}")
 
     if not all_associated:
         if not silent:
-            print("\n[-] No associated domains found. Exiting.")
+            print("[-] No associated domains found. Exiting.")
         return
 
     if not silent:
-        print(f"\n{'='*60}")
-        print(f"[*] Phase 2: Enumerating subdomains for {len(all_associated)} associated domains...")
-        print(f"[*] Running {parallel_domains} domains in parallel for speed")
-        print(f"{'='*60}\n")
+        print(f"\n[INF] Phase 2: Enumerating subdomains for {len(all_associated)} domains "
+              f"| {parallel_domains} workers\n")
 
     all_subdomains_aggregate = set()
     all_live_aggregate = set()
-
     start_time = time.time()
 
     with ThreadPoolExecutor(max_workers=parallel_domains) as executor:
         futures = []
         for idx, assoc_domain in enumerate(sorted(all_associated), 1):
             domain_dir = os.path.join(scan_dir, assoc_domain)
-            future = executor.submit(subdomain_enumeration, assoc_domain, domain_dir, check_live, selected_sources, silent)
+            future = executor.submit(
+                subdomain_enumeration, assoc_domain, domain_dir, check_live, selected_sources, silent
+            )
             futures.append((future, assoc_domain, idx))
 
         for future, assoc_domain, idx in futures:
-            if not silent:
-                print(f"\n{'#'*60}")
-                print(f"[*] Collecting results for domain {idx}/{len(all_associated)}: {assoc_domain}")
-                print(f"{'#'*60}")
-
             try:
                 domain_subs, domain_live = future.result()
                 all_subdomains_aggregate.update(domain_subs)
                 all_live_aggregate.update(domain_live)
+                if not silent:
+                    live_str = f" | {len(domain_live)} live" if check_live else ""
+                    print(f"[{idx}/{len(all_associated)}] {assoc_domain} → {len(domain_subs)} subdomains{live_str}")
             except Exception as e:
                 if not silent:
-                    print(f"[-] Error processing {assoc_domain}: {str(e)}")
+                    print(f"[{idx}/{len(all_associated)}] {assoc_domain} → ERROR: {str(e)}")
                 continue
 
     elapsed = time.time() - start_time
-    if not silent:
-        print(f"\n[⏱] Enumeration phase completed in: {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
-        print(f"\n{'='*60}")
-        print(f"[*] Saving aggregated results...")
-        print(f"{'='*60}\n")
 
     all_subs_file = os.path.join(scan_dir, 'all_subdomains.txt')
-    count = save_results(all_subs_file, all_subdomains_aggregate)
+    save_results(all_subs_file, all_subdomains_aggregate)
 
-    if not silent:
-        print(f"[✓] All subdomains from all associated domains: {count}")
-        print(f"[✓] Saved to: {all_subs_file}")
-
-    # Run expansion if requested
     if run_expansion:
         if not validate_expansion_tools(silent):
             if not silent:
@@ -753,21 +674,14 @@ def process_acquisition_with_enum(domain, email_filters=None, check_live=False,
 
             if check_live:
                 live_expansion_file = os.path.join(scan_dir, 'live_all_in_one.txt')
+                expanded_live = check_live_subdomains(all_in_one_file, live_expansion_file, silent=True)
                 if not silent:
-                    print(f"\n[+] Checking expanded subdomains for live hosts with httpx...")
-                live_count = check_live_subdomains(all_in_one_file, live_expansion_file, silent)
-                if not silent:
-                    print(f"[✓] Live expanded subdomains: {live_count}")
-                    print(f"[✓] Saved to: {live_expansion_file}")
+                    print(f"[INF] Expanded live subdomains: {expanded_live} → {live_expansion_file}")
 
     if check_live and all_live_aggregate:
         all_live_file = os.path.join(scan_dir, 'live_all_subdomains.txt')
-        count = save_results(all_live_file, all_live_aggregate)
-        if not silent:
-            print(f"[✓] All live subdomains from all associated domains: {count}")
-            print(f"[✓] Saved to: {all_live_file}")
+        save_results(all_live_file, all_live_aggregate)
 
     if not silent:
-        print(f"\n{'='*60}")
-        print(f"[✓] Acquisition + Enumeration complete! Results saved in: {scan_dir}")
-        print(f"{'='*60}\n")
+        _print_report(len(all_associated), len(all_subdomains_aggregate),
+                      len(all_live_aggregate), elapsed, scan_dir, check_live)

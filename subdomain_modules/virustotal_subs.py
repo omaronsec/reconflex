@@ -48,6 +48,10 @@ def get_virustotal_subdomains(domain):
 
             return cleaned_subdomains
 
+        elif response.status_code == 204:
+            # No content — rate limit or no data for this domain; not an error
+            return []
+
         elif response.status_code == 401:
             print(f"    [!] VirusTotal API key invalid")
             return []

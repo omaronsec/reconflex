@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reconflex v4.1 - Bug Bounty Recon Framework
+Reconflex v4.2 - Bug Bounty Recon Framework
 Parallel subdomain enumeration, domain acquisition & IP enumeration
 
 Author: Omar Abdelhameed (@omaronsec)
@@ -13,11 +13,9 @@ import os
 # Add current directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
-# Import config and validate requirements
 import config
-
-# Import CLI and orchestrator
 from cli import print_banner, parse_args, parse_sources
+from preflight import run_preflight
 from orchestrator import (
     process_single_domain,
     process_domain_list,
@@ -33,22 +31,12 @@ from orchestrator import (
 def main():
     args = parse_args()
 
-    # Silent mode suppresses banner and progress
     if not args.silent:
         print_banner()
 
-    # Quick validation: Only check API keys (fast)
-    missing_keys = []
-    for key_name, key_value in config.API_KEYS.items():
-        if not key_value or key_value == '':
-            missing_keys.append(key_name)
-
-    if missing_keys:
-        print(f"[!] Missing API keys: {', '.join(missing_keys)}")
-        print(f"[!] Please configure them in .env file")
-        print(f"[!] Run 'python3 config.py' for detailed validation")
-        print(f"[!] See .env.example for reference\n")
-        sys.exit(1)
+    # Pre-flight: validate API keys (real requests) + tools before any work
+    if not run_preflight(check_expansion=args.expand, silent=args.silent):
+        sys.exit(0)
 
     # Parse source filters
     selected_sources = parse_sources(args.sources) if args.sources else None

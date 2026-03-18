@@ -10,27 +10,26 @@ import sys
 
 BANNER = """
     ╔═══════════════════════════════════════════════════════╗
-    ║         Reconflex v4.1                                ║
+    ║         Reconflex v4.2                                ║
     ║         Bug Bounty Recon Framework (PARALLEL)         ║
     ║                                                       ║
     ║  Sources: VirusTotal, SecurityTrails, crt.sh,         ║
-    ║           Shodan, Chaos, URLScan, AlienVault OTX,     ║
+    ║           Shodan, Chaos, AlienVault OTX,              ║
     ║           Subfinder (ProjectDiscovery)                ║
     ║                                                       ║
     ║  Acquisition: SecurityTrails + AlienVault OTX         ║
     ║  IP Enumeration: SecurityTrails + Shodan (SSL)        ║
     ║  Expansion: alterx + shuffledns                       ║
     ║                                                       ║
-    ║  Features: --silent, --sources, retry/backoff,        ║
-    ║            domain validation, Go httpx detection      ║
+    ║  Features: pre-flight checks, --silent, --sources,    ║
+    ║            retry/backoff, domain validation           ║
     ║                                                       ║
     ║  ⚡ PERFORMANCE: All API calls run in parallel!       ║
-    ║  Output Structure: Hybrid (Organized & Clean)         ║
     ╚═══════════════════════════════════════════════════════╝
     """
 
-# All available subdomain sources
-ALL_SOURCES = ['virustotal', 'securitytrails', 'crtsh', 'shodan', 'chaos', 'urlscan', 'otx', 'subfinder']
+# All available subdomain sources (urlscan removed)
+ALL_SOURCES = ['virustotal', 'securitytrails', 'crtsh', 'shodan', 'chaos', 'otx', 'subfinder']
 
 
 def print_banner():
@@ -69,7 +68,7 @@ Examples:
 
 Available sources for --sources flag:
   virustotal (vt), securitytrails (st), crtsh, shodan,
-  chaos, urlscan, otx, subfinder (sf)
+  chaos, otx, subfinder (sf)
 
 Output Structure:
   output/
