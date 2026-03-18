@@ -1,4 +1,4 @@
-# Reconflex v4.1
+# Reconflex v4.2
 
 **Bug Bounty Recon Framework (Parallel Edition)**
 
@@ -11,6 +11,7 @@ Reconflex aggregates subdomains from 8 sources simultaneously, giving you broade
 ## Features
 
 - **Parallel Execution** - All 8 API sources queried at the same time
+- **Pre-flight Checks** - Validates API keys via real requests and tools before scan starts
 - **Subdomain Enumeration** - Single domain or batch mode from a list
 - **Domain Acquisition** - Discover associated/related domains via SecurityTrails + OTX
 - **IP Enumeration** - CIDR and IP discovery via SecurityTrails + Shodan SSL
@@ -18,9 +19,10 @@ Reconflex aggregates subdomains from 8 sources simultaneously, giving you broade
 - **Live Check** - Verify which subdomains are actually alive with httpx
 - **Silent Mode** - Pipe-friendly output for chaining with other tools
 - **Source Selection** - Choose specific sources with `--sources vt,st,crtsh`
+- **Custom Scan Naming** - Name your scan directory with `--name`
 - **Domain Validation** - Validates input before firing API calls
 - **Retry/Backoff** - Unified exponential backoff across all API modules
-- **Go httpx Detection** - Automatically finds the correct httpx binary
+- **crt.sh Fallback** - Automatically falls back to Certspotter if crt.sh is down
 
 ---
 
@@ -29,7 +31,7 @@ Reconflex aggregates subdomains from 8 sources simultaneously, giving you broade
 ### Step 1: Clone the repo
 
 ```bash
-git clone https://github.com/omar-secdown/reconflex.git
+git clone https://github.com/omaronsec/reconflex.git
 cd reconflex
 ```
 
@@ -116,6 +118,12 @@ python3 reconflex.py -u example.com
 python3 reconflex.py -l domains.txt
 ```
 
+### Named scan
+
+```bash
+python3 reconflex.py -l domains.txt --name abbvie-q1
+```
+
 ### Check for live subdomains
 
 ```bash
@@ -173,12 +181,6 @@ python3 reconflex.py -u example.com --silent | httpx | nuclei
 python3 reconflex.py -u example.com --sources vt,st,crtsh,shodan
 ```
 
-### Verbose mode (debug output)
-
-```bash
-python3 reconflex.py -u example.com -v
-```
-
 ### Parallel domain processing
 
 ```bash
@@ -197,13 +199,23 @@ output/
 |   +-- all_in_one_example.com.txt           (if -expand)
 |   +-- live_all_in_one_example.com.txt      (if -expand -live)
 |
-|-- scans/                      (Batch scans: -l, -acq-enum)
-|   +-- 2026-01-05_example.com/
+|-- scans/                      (Batch scans: -l, -acq-enum, -ips-enum-l)
+|   +-- 2026-01-05_abbvie-q1/               (--name abbvie-q1)
+|   |   +-- per_domain/
+|   |   |   +-- sub.example.com.txt         (flat file per domain, skipped if 0 results)
+|   |   +-- all_subdomains.txt              (all unique subdomains combined)
+|   |   +-- live_subdomains.txt             (if -live)
+|   |   +-- subdomains_by_domain.txt        (grouped view per domain)
+|   |   +-- domains_with_results.txt        (only domains that had results)
+|   |   +-- summary.txt                     (scan summary report)
+|   |   +-- ips/                            (if -ips-enum-l)
+|   |       +-- all_ips.txt
+|   |       +-- ips_for_example.com.txt
 |
 |-- acquisition/                (Acquisition: -acq)
 |   +-- example.com_acquisition.txt
 |
-+-- ips/                        (IP enumeration)
++-- ips/                        (IP enumeration: -ips-d, -ips-l)
     +-- ips_for_example.com_05_01.txt
 ```
 
@@ -218,7 +230,7 @@ output/
 | `-live` | Check for live subdomains (httpx) |
 | `-expand` | Run subdomain expansion (alterx + shuffledns) |
 | `-pd N` | Parallel domain count (default: 3) |
-| `-v` | Verbose/debug output |
+| `--name NAME` | Custom name for the scan directory |
 | `--silent` | Silent mode - results only, no banner/progress |
 | `--sources SOURCES` | Select sources (e.g., `vt,st,crtsh,shodan,chaos,urlscan,otx,sf`) |
 | `-ips-d DOMAIN` | IP enumeration for single domain |
