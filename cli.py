@@ -108,6 +108,7 @@ Output Structure:
     parser.add_argument('-email', '--email-filters', type=str, metavar='DOMAINS', help="Comma-separated email domain names for acquisition")
     parser.add_argument('-pd', '--parallel-domains', type=int, default=3, metavar='N', help="Number of domains to process in parallel (default: 3)")
     parser.add_argument('--silent', action='store_true', help="Silent mode - only output results, no banner/progress")
+    parser.add_argument('--name', type=str, metavar='NAME', help="Custom name for the scan directory (e.g., abbvie-q1)")
     parser.add_argument('--sources', type=str, metavar='SOURCES', help="Comma-separated list of sources to use (e.g., vt,st,crtsh,shodan)")
     parser.add_argument('-v', '--verbose', action='store_true', help="Verbose output with debug information")
 

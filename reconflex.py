@@ -58,7 +58,8 @@ def main():
     elif args.list:
         process_domain_list(
             args.list, args.live, args.parallel_domains, args.expand,
-            selected_sources=selected_sources, silent=args.silent
+            selected_sources=selected_sources, silent=args.silent,
+            scan_name=args.name
         )
     elif args.ip_domain:
         process_ip_single(args.ip_domain, silent=args.silent)
@@ -72,7 +73,8 @@ def main():
     elif args.ip_enum_list:
         process_ip_enum_list(
             args.ip_enum_list, args.live,
-            selected_sources=selected_sources, silent=args.silent
+            selected_sources=selected_sources, silent=args.silent,
+            scan_name=args.name
         )
     elif args.acquisition:
         process_acquisition(args.acquisition, email_filters, silent=args.silent)
@@ -80,7 +82,8 @@ def main():
         process_acquisition_with_enum(
             args.acquisition_enum, email_filters, args.live,
             args.parallel_domains, args.expand,
-            selected_sources=selected_sources, silent=args.silent
+            selected_sources=selected_sources, silent=args.silent,
+            scan_name=args.name
         )
 
     if not args.silent:
