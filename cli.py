@@ -50,8 +50,9 @@ def parse_args():
 Examples:
   python3 reconflex.py -u example.com
   python3 reconflex.py -l domains.txt
+  python3 reconflex.py -l domains.txt --name abbvie-q1        # Named scan directory
   python3 reconflex.py -u example.com -live
-  python3 reconflex.py -l domains.txt -expand                # Subdomain expansion
+  python3 reconflex.py -l domains.txt -expand                 # Subdomain expansion
   python3 reconflex.py -l domains.txt -expand -live           # Expansion + live check
   python3 reconflex.py -l domains.txt -pd 5                   # Process 5 domains in parallel
   python3 reconflex.py -u example.com --silent                # Silent mode (results only)
@@ -71,23 +72,28 @@ Available sources for --sources flag:
 
 Output Structure:
   output/
-  |-- quick_results/              (Single domain scans: -u)
+  |-- quick_results/              (Single domain: -u)
   |   |-- example.com_subdomains.txt
-  |   |-- all_in_one_example.com.txt          (if -expand used)
-  |   |-- live_all_in_one_example.com.txt     (if -expand -live used)
-  |   +-- live_example.com_subdomains.txt
+  |   |-- live_example.com_subdomains.txt     (if -live)
+  |   |-- all_in_one_example.com.txt          (if -expand)
+  |   +-- live_all_in_one_example.com.txt     (if -expand -live)
   |
-  |-- scans/                      (Batch/complex scans: -l, -acq-enum)
-  |   |-- 2026-01-05_example.com/
-  |   |   |-- all_subdomains.txt
-  |   |   |-- all_in_one.txt                  (if -expand used)
-  |   |   +-- live_all_in_one.txt             (if -expand -live used)
-  |   +-- 2026-01-05_target.com_acquisition/
+  |-- scans/                      (Batch scans: -l, -acq-enum, -ips-enum-l)
+  |   +-- 2026-01-05_abbvie-q1/              (--name abbvie-q1)
+  |       |-- per_domain/
+  |       |   +-- sub.example.com.txt         (one file per domain, skipped if 0 results)
+  |       |-- all_subdomains.txt
+  |       |-- live_subdomains.txt             (if -live)
+  |       |-- subdomains_by_domain.txt
+  |       |-- domains_with_results.txt
+  |       |-- summary.txt
+  |       +-- ips/                            (if -ips-enum-l)
+  |           +-- all_ips.txt
   |
-  |-- acquisition/                (Acquisition results: -acq)
+  |-- acquisition/                (Acquisition: -acq)
   |   +-- example.com_acquisition.txt
   |
-  +-- ips/                        (IP enumeration results)
+  +-- ips/                        (IP enumeration: -ips-d, -ips-l)
       +-- ips_for_example.com_05_01.txt
         """
     )
