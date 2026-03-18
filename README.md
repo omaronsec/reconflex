@@ -4,13 +4,13 @@
 
 Reconflex aggregates subdomains from 8 sources simultaneously, giving you broader coverage than any single tool alone.
 
-**Sources:** VirusTotal, SecurityTrails, crt.sh, Shodan, Chaos, URLScan, AlienVault OTX, Subfinder
+**Sources:** VirusTotal, SecurityTrails, crt.sh, Shodan, Chaos, AlienVault OTX, Subfinder
 
 ---
 
 ## Features
 
-- **Parallel Execution** - All 8 API sources queried at the same time
+- **Parallel Execution** - All 7 API sources queried at the same time
 - **Pre-flight Checks** - Validates API keys via real requests and tools before scan starts
 - **Subdomain Enumeration** - Single domain or batch mode from a list
 - **Domain Acquisition** - Discover associated/related domains via SecurityTrails + OTX
@@ -86,7 +86,6 @@ URLSCAN_API_KEY=your_key_here
 | SecurityTrails | https://securitytrails.com |
 | VirusTotal | https://virustotal.com |
 | Chaos (ProjectDiscovery) | https://chaos.projectdiscovery.io |
-| URLScan.io | https://urlscan.io |
 
 ### Step 5: Configure Shodan (optional)
 
@@ -232,7 +231,7 @@ output/
 | `-pd N` | Parallel domain count (default: 3) |
 | `--name NAME` | Custom name for the scan directory |
 | `--silent` | Silent mode - results only, no banner/progress |
-| `--sources SOURCES` | Select sources (e.g., `vt,st,crtsh,shodan,chaos,urlscan,otx,sf`) |
+| `--sources SOURCES` | Select sources (e.g., `vt,st,crtsh,shodan,chaos,otx,sf`) |
 | `-ips-d DOMAIN` | IP enumeration for single domain |
 | `-ips-l FILE` | IP enumeration for domain list |
 | `-ips-enum-d DOMAIN` | Subdomain + IP enumeration |

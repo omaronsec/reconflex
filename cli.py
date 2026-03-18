@@ -14,7 +14,7 @@ BANNER = """
     ║         Bug Bounty Recon Framework (PARALLEL)         ║
     ║                                                       ║
     ║  Sources: VirusTotal, SecurityTrails, crt.sh,         ║
-    ║           Shodan, Chaos, URLScan, AlienVault OTX,     ║
+    ║           Shodan, Chaos, AlienVault OTX,              ║
     ║           Subfinder (ProjectDiscovery)                ║
     ║                                                       ║
     ║  Acquisition: SecurityTrails + AlienVault OTX         ║
@@ -28,7 +28,7 @@ BANNER = """
     ╚═══════════════════════════════════════════════════════╝
     """
 
-ALL_SOURCES = ['virustotal', 'securitytrails', 'crtsh', 'shodan', 'chaos', 'urlscan', 'otx', 'subfinder']
+ALL_SOURCES = ['virustotal', 'securitytrails', 'crtsh', 'shodan', 'chaos', 'otx', 'subfinder']
 
 
 def print_banner():
@@ -68,7 +68,7 @@ Examples:
 
 Available sources for --sources flag:
   virustotal (vt), securitytrails (st), crtsh, shodan,
-  chaos, urlscan, otx, subfinder (sf)
+  chaos, otx, subfinder (sf)
 
 Output Structure:
   output/
@@ -115,7 +115,7 @@ Output Structure:
     parser.add_argument('-pd', '--parallel-domains', type=int, default=3, metavar='N', help="Number of domains to process in parallel (default: 3)")
     parser.add_argument('--silent', action='store_true', help="Silent mode - only output results, no banner/progress")
     parser.add_argument('--name', type=str, metavar='NAME', help="Custom name for the scan directory (e.g., abbvie-q1)")
-    parser.add_argument('--sources', type=str, metavar='SOURCES', help="Comma-separated list of sources to use (e.g., vt,st,crtsh,shodan)")
+    parser.add_argument('--sources', type=str, metavar='SOURCES', help="Comma-separated list of sources to use (e.g., vt,st,crtsh,shodan,chaos,otx,sf)")
     parser.add_argument('-v', '--verbose', action='store_true', help="Verbose output with debug information")
 
     args = parser.parse_args()

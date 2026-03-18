@@ -173,14 +173,16 @@ def make_request(url, headers=None, params=None, timeout=30, max_retries=3,
 
             # Handle rate limiting
             if response.status_code == 429:
+                retry_after = int(response.headers.get('Retry-After', delay))
+                # If Retry-After is absurdly long (>30s), just bail immediately
+                if retry_after > 30:
+                    return None
                 if attempt < max_retries:
-                    retry_after = int(response.headers.get('Retry-After', delay))
                     print(f"    [!] {source_name} rate limited - waiting {retry_after}s (attempt {attempt + 1}/{max_retries})")
                     time.sleep(retry_after)
                     delay *= 2
                     continue
                 else:
-                    print(f"    [!] {source_name} rate limited - max retries reached")
                     return None
 
             # Handle server errors

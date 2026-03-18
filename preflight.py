@@ -70,23 +70,6 @@ def _check_otx():
     return False, f"HTTP {resp.status_code}"
 
 
-def _check_urlscan():
-    api_key = config.API_KEYS.get('URLSCAN_API_KEY', '')
-    if not api_key:
-        return False, "not set"
-    resp = make_request(
-        "https://urlscan.io/api/v1/search/",
-        headers={'API-Key': api_key},
-        params={'q': 'domain:google.com', 'size': 1},
-        timeout=10, max_retries=1, source_name="URLScan"
-    )
-    if resp is None:
-        return False, "no response"
-    if resp.status_code == 200:
-        return True, "OK"
-    if resp.status_code == 401:
-        return False, "invalid API key"
-    return False, f"HTTP {resp.status_code}"
 
 
 def _check_chaos():
@@ -136,7 +119,6 @@ API_CHECKS = {
     'SecurityTrails': _check_securitytrails,
     'AlienVault OTX': _check_otx,
     'Chaos':          _check_chaos,
-    'URLScan':        _check_urlscan,
     'Shodan':         _check_shodan,
 }
 
